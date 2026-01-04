@@ -1,16 +1,24 @@
-# 실행 전제:
-# 컨테이너 밖(EC2 또는 로컬)에서 먼저 ./gradlew bootJar 로 JAR를 빌드해 둔다.
+# 1단계: Gradle로 Spring Boot JAR 빌드
+FROM gradle:8.7-jdk17-alpine AS builder
 
-FROM eclipse-temurin:17-jre-alpine
-
-# 애플리케이션이 실행될 작업 디렉터리
+# 컨테이너 안 작업 디렉터리
 WORKDIR /app
 
-# 미리 빌드된 Spring Boot JAR 파일을 컨테이너 안으로 복사
-# build/libs 안에 *.jar (예: backend-0.0.1-SNAPSHOT.jar) 가 있어야 한다.
-COPY build/libs/*.jar app.jar
+# Gradle 설정 및 소스 전체 복사
+COPY . .
 
-# 외부에서 접근할 포트
+# bootJar 실행 (스프링 부트 실행용 JAR 빌드)
+RUN ./gradlew bootJar --no-daemon
+
+# 2단계: JRE만 있는 가벼운 이미지로 실제 실행
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+# 빌더 단계에서 만든 JAR만 가져오기
+COPY --from=builder /app/build/libs/*.jar app.jar
+
+# 외부로 노출할 포트
 EXPOSE 8080
 
 # 스프링 부트 애플리케이션 실행
